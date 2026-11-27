@@ -14,6 +14,13 @@ const PROFILE_KEYS = [
   { key: 'luogodinascita', label: 'Luogo di nascita' }
 ];
 
+const LOADER_MESSAGES = [
+  'Risveglio del server\u2026',
+  'Il server gratuito si accende al primo utilizzo, un attimo\u2026',
+  'Ancora un istante\u2026',
+  'Quasi pronto\u2026'
+];
+
 const state = {
   pdfs: [],          // { name, bytes, size }
   questions: [],     // { pdfIndex, field: {name, type, options}, value, skipped }
@@ -37,6 +44,26 @@ function show(screen) {
   const titles = { home: 'PDF Compilatore', quiz: 'Compilazione', email: 'Email di invio', settings: 'Impostazioni' };
   $('screen-title').textContent = titles[screen] || '';
   window.scrollTo(0, 0);
+  if (screen === 'home') checkServerStatus();
+}
+
+async function checkServerStatus() {
+  const pill = $('server-pill');
+  const base = apiBase();
+  if (!base) return;
+  pill.classList.remove('hidden');
+  pill.textContent = '\u23f3 Verifico il server\u2026';
+  const standby = '\ud83d\udfe1 Server in standby: si accender\u00e0 al primo invio (fino a un minuto)';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(base + '/health', { signal: ctrl.signal });
+    clearTimeout(t);
+    const data = await res.json().catch(() => ({}));
+    pill.textContent = res.ok && data.ok ? '\ud83d\udfe2 Server pronto per l\u2019invio' : standby;
+  } catch (_) {
+    pill.textContent = standby;
+  }
 }
 
 function status(el, text, kind) {
@@ -366,6 +393,63 @@ function skipQuestion() {
   nextQuestion();
 }
 
+/* ---------- loader di risveglio ---------- */
+
+function showLoader(text) {
+  $('loader-text').textContent = text;
+  $('loader-overlay').classList.remove('hidden');
+}
+
+function setLoaderText(text) {
+  $('loader-text').textContent = text;
+}
+
+function hideLoader() {
+  $('loader-overlay').classList.add('hidden');
+}
+
+async function wakeServer() {
+  const base = apiBase();
+  if (!base) return false;
+  const deadline = Date.now() + 90000;
+  let i = 0;
+  while (Date.now() < deadline) {
+    setLoaderText(LOADER_MESSAGES[i % LOADER_MESSAGES.length]);
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(base + '/health', { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.ok) return true;
+      }
+    } catch (_) { /* server ancora spento */ }
+    i++;
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  return false;
+}
+
+async function sendOnce(payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 120000);
+  try {
+    const res = await fetch(apiBase() + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    return { ok: false, status: 0, data: {}, networkError: err.name !== 'AbortError' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ---------- email step ---------- */
 
 function showEmailStep() {
@@ -441,32 +525,46 @@ async function sendEmail() {
     status(st, 'Inserisci il destinatario.', 'err');
     return;
   }
+  if (!apiBase()) {
+    status(st, 'Nessun server di invio configurato (vedi Impostazioni).', 'err');
+    return;
+  }
   $('btn-send').disabled = true;
-  status(st, 'Compilo i PDF e preparo l\u2019invio…', 'info');
+  status(st, 'Compilo i PDF e preparo l’invio…', 'info');
   try {
     const files = await compilePdfs();
-    const attachments = files.map((f) => ({
-      filename: f.name,
-      content: btoa(String.fromCharCode(...f.bytes))
-    }));
-    const base = apiBase();
-    if (!base) throw new Error('Nessun server di invio configurato (vedi Impostazioni).');
-    const res = await fetch(base + '/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, body, attachments })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Errore del server (' + res.status + ')');
-    status(st, '✅ Email inviata a ' + to + ' con ' + attachments.length + ' PDF allegati.', 'ok');
-    $('btn-send').disabled = false;
-    state.questions = [];
-    state.pdfs.forEach((p) => (p.compiled = true));
+    const payload = {
+      to,
+      subject,
+      body,
+      attachments: files.map((f) => ({
+        filename: f.name,
+        content: btoa(String.fromCharCode(...f.bytes))
+      }))
+    };
+    showLoader('Invio in corso…');
+    let r = await sendOnce(payload);
+    if (!r.ok && (r.status === 0 || r.status === 502 || r.status === 503 || r.status === 504)) {
+      const woken = await wakeServer();
+      if (woken) {
+        setLoaderText('Server pronto, invio in corso…');
+        r = await sendOnce(payload);
+      }
+    }
+    hideLoader();
+    if (r.ok) {
+      status(st, '✅ Email inviata a ' + to + ' con ' + payload.attachments.length + ' PDF allegati.', 'ok');
+      state.questions = [];
+      state.pdfs.forEach((p) => (p.compiled = true));
+    } else {
+      throw new Error(r.data.error || (r.status ? 'Errore del server (' + r.status + ')' : 'Server non raggiungibile'));
+    }
   } catch (err) {
+    hideLoader();
     status(st, '❌ ' + err.message, 'err');
-    $('btn-send').disabled = false;
     updateFallback();
   }
+  $('btn-send').disabled = false;
 }
 
 async function sharePdfs() {

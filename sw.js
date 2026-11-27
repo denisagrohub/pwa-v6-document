@@ -1,4 +1,4 @@
-const CACHE = 'pdf-compilatore-v1';
+const CACHE = 'pdf-compilatore-v2';
 const PDFLIB_URL = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 
 const ASSETS = [

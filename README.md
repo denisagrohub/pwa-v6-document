@@ -33,7 +33,15 @@ Il server serve anche i file statici della PWA: un solo processo, nessun CORS da
 
 ## Configurazione SMTP
 
-Gestita interamente dal server con variabili d'ambiente (vedi `server/.env.example`). Le credenziali non toccano mai il client. Con Gmail: attiva la verifica in due passaggi e crea una **password per app**.
+Gestita interamente dal server con variabili d'ambiente (vedi `server/.env.example`). Le credenziali non toccano mai il client.
+
+**Register.it**: host `authsmtp.securemail.pro`, porta `465` SSL, username = indirizzo della casella (o `smtp@tuodominio.it` con gli Invii aggiuntivi). Base: 50 invii/giorno per casella, estendibile con il servizio Invii aggiuntivi.
+
+**Gmail**: attiva la verifica in due passaggi e crea una **password per app**.
+
+## Server gratuito (Render)
+
+Sul free tier di Render il server si "addormenta" dopo ~15 minuti di inattività. L'app è pronta: alla apertura mostra lo stato del server (🟢 pronto / 🟡 in standby) e, al primo invio, un caricatore animato mentre il server si risveglia (fino a ~90 secondi), poi completa l'invio da sola.
 
 ## Deployment
 

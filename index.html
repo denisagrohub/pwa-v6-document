@@ -49,6 +49,7 @@
         </div>
         <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
       </div>
+      <div id="server-pill" class="server-pill hidden"></div>
       <div id="home-status" class="status hidden"></div>
     </section>
 
@@ -131,6 +132,14 @@
       </div>
     </section>
   </main>
+
+  <div id="loader-overlay" class="loader-overlay hidden" aria-live="polite">
+    <div class="loader-card">
+      <img src="icons/icon-192.png" alt="" class="loader-icon">
+      <div class="spinner" role="status" aria-label="Caricamento"></div>
+      <p id="loader-text">Attendere…</p>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>
   <script src="app.js" defer></script>
