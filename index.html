@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1a73e8">
   <meta name="description" content="Compila PDF compilabili rispondendo a domande e invia l'email pronta.">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link id="manifest-link" rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>PDF Compilatore</title>
@@ -13,7 +13,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="screen-title">PDF Compilatore</h1>
+    <h1 id="screen-title"><img id="brand-logo" src="icons/icon-192.png" alt="">PDF Compilatore</h1>
     <button id="btn-settings" class="icon-btn" aria-label="Impostazioni">⚙️</button>
   </header>
 
@@ -24,17 +24,17 @@
         <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustrazione: documento compilato">
           <defs>
             <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/>
+              <stop offset="0" stop-color="#4338ca"/><stop offset="1" stop-color="#312e81"/>
             </linearGradient>
           </defs>
           <circle cx="100" cy="72" r="62" fill="url(#hg1)" opacity="0.12"/>
           <rect x="55" y="18" width="76" height="100" rx="10" fill="url(#hg1)"/>
           <rect x="63" y="30" width="60" height="76" rx="5" fill="#ffffff"/>
-          <rect x="70" y="42" width="38" height="5" rx="2.5" fill="#4f46e5" opacity="0.85"/>
-          <rect x="70" y="54" width="46" height="4" rx="2" fill="#c7cdf9"/>
-          <rect x="70" y="64" width="30" height="4" rx="2" fill="#c7cdf9"/>
-          <rect x="70" y="74" width="42" height="4" rx="2" fill="#c7cdf9"/>
-          <circle cx="128" cy="102" r="17" fill="#067647"/>
+          <rect x="70" y="42" width="38" height="5" rx="2.5" fill="#d4af37" opacity="0.9"/>
+          <rect x="70" y="54" width="46" height="4" rx="2" fill="#e2d8aa"/>
+          <rect x="70" y="64" width="30" height="4" rx="2" fill="#e2d8aa"/>
+          <rect x="70" y="74" width="42" height="4" rx="2" fill="#e2d8aa"/>
+          <circle cx="128" cy="102" r="17" fill="#d4af37"/>
           <path d="M120.5 102.5l5 5 10-10" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <p>Compila i tuoi moduli PDF rispondendo a poche domande e invia tutto via email, direttamente dal telefono.</p>
@@ -101,6 +101,36 @@
 
     <!-- IMPOSTAZIONI -->
     <section id="screen-settings" class="screen hidden">
+      <div class="card">
+        <h2>Aspetto</h2>
+        <p class="hint">Logo e colori dell'app: le modifiche si applicano subito e restano salvate sul dispositivo. Il logo personalizzato viene usato anche come icona dell'app se la reinstalli dalla stessa sessione.</p>
+        <div class="appearance-row">
+          <div class="logo-preview"><img id="logo-preview-img" src="icons/icon-192.png" alt="Anteprima logo"></div>
+          <div>
+            <button id="btn-upload-logo" class="btn btn-secondary">🖼️ Carica logo</button>
+            <button id="btn-remove-logo" class="btn btn-ghost">Rimuovi</button>
+          </div>
+        </div>
+        <input id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <div class="swatches">
+          <button class="swatch" data-p="#4338ca" data-a="#d4af37"><span class="dot" style="background:#4338ca"></span>Indaco &amp; Oro</button>
+          <button class="swatch" data-p="#1f2430" data-a="#d4af37"><span class="dot" style="background:#1f2430"></span>Notte &amp; Oro</button>
+          <button class="swatch" data-p="#1e40af" data-a="#c9a227"><span class="dot" style="background:#1e40af"></span>Blu reale</button>
+        </div>
+        <div class="color-row">
+          <label>Colore primario
+            <input id="set-primary" type="color" value="#4338ca">
+          </label>
+          <label>Accento (oro)
+            <input id="set-accent" type="color" value="#d4af37">
+          </label>
+        </div>
+        <div class="theme-preview">
+          <div class="tp-bar"></div>
+          <span class="tp-btn">Pulsante</span>
+          <span class="tp-gold">Accento</span>
+        </div>
+      </div>
       <div class="card">
         <h2>Server di invio</h2>
         <p class="hint">Indirizzo del server SMTP configurato (lascia vuoto per usare lo stesso dominio dell'app).</p>

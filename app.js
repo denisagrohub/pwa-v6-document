@@ -30,7 +30,8 @@ const state = {
     recipient: '',
     subject: '',
     signature: '',
-    profile: {}
+    profile: {},
+    theme: { primary: '#4338ca', accent: '#d4af37' }
   }
 };
 
@@ -152,6 +153,7 @@ function loadSettings() {
   try {
     const raw = localStorage.getItem('pdf-compilatore-settings');
     if (raw) Object.assign(state.settings, JSON.parse(raw));
+    state.settings.theme = Object.assign({ primary: '#4338ca', accent: '#d4af37' }, state.settings.theme || {});
   } catch (_) { /* ignore */ }
 }
 
@@ -209,6 +211,97 @@ async function extractQuestions(bytes) {
     }
   }
   return out;
+}
+
+/* ---------- tema: colori e logo ---------- */
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function applyTheme() {
+  const t = state.settings.theme;
+  const root = document.documentElement;
+  root.style.setProperty('--primary', t.primary);
+  root.style.setProperty('--accent', t.accent);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = t.primary;
+}
+
+async function applyThemeFromInputs(persist) {
+  state.settings.theme.primary = $('set-primary').value;
+  state.settings.theme.accent = $('set-accent').value;
+  applyTheme();
+  if (persist) saveSettings();
+}
+
+async function logoRecord() {
+  return (await dbAll()).find((r) => r.name === '__logo__') || null;
+}
+
+async function applyLogo() {
+  const rec = await logoRecord();
+  const url = rec ? URL.createObjectURL(new Blob([rec.bytes], { type: 'image/png' })) : 'icons/icon-192.png';
+  $('brand-logo').src = url;
+  $('logo-preview-img').src = url;
+  const favicon = document.querySelector('link[rel="icon"]');
+  if (favicon) favicon.href = url;
+  await updatePwaManifest();
+}
+
+async function updatePwaManifest() {
+  try {
+    const rec = await logoRecord();
+    if (!rec) return;
+    const logo = await createImageBitmap(new Blob([rec.bytes], { type: 'image/png' }));
+    const manifest = await (await fetch('manifest.webmanifest')).json();
+    manifest.icons = [
+      { src: renderIcon(logo, 192, false), sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: renderIcon(logo, 512, false), sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: renderIcon(logo, 512, true), sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+    ];
+    manifest.theme_color = state.settings.theme.primary;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+    $('manifest-link').href = url;
+  } catch (_) { /* resta attivo il manifest statico */ }
+}
+
+function renderIcon(bitmap, size, maskable) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, state.settings.theme.primary);
+  grad.addColorStop(1, cssVar('--primary-2') || state.settings.theme.primary);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const w = size * (maskable ? 0.42 : 0.58);
+  ctx.drawImage(bitmap, (size - w) / 2, (size - w) / 2, w, w);
+  return canvas.toDataURL('image/png');
+}
+
+async function normalizeLogo(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('formato immagine non riconosciuto'));
+      image.src = url;
+    });
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const scale = Math.min(size / img.width, size / img.height) * 0.82;
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    const bin = atob(canvas.toDataURL('image/png').split(',')[1]);
+    return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /* ---------- home ---------- */
@@ -611,6 +704,9 @@ function renderSettings() {
   $('set-recipient').value = state.settings.recipient;
   $('set-subject').value = state.settings.subject;
   $('set-signature').value = state.settings.signature;
+  $('set-primary').value = state.settings.theme.primary;
+  $('set-accent').value = state.settings.theme.accent;
+  applyLogo();
   const wrap = $('profile-fields');
   wrap.innerHTML = '';
   for (const p of PROFILE_KEYS) {
@@ -684,6 +780,35 @@ function bind() {
     renderHome().then(() => show('home'));
   });
   $('btn-test-api').addEventListener('click', testApi);
+  $('btn-upload-logo').addEventListener('click', () => $('logo-input').click());
+  $('logo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const bytes = await normalizeLogo(file);
+      await dbPut({ name: '__logo__', bytes, size: bytes.length });
+      await applyLogo();
+    } catch (err) {
+      alert('Logo non valido: ' + err.message);
+    }
+  });
+  $('btn-remove-logo').addEventListener('click', async () => {
+    await dbDelete('__logo__');
+    await applyLogo();
+  });
+  document.querySelectorAll('.swatch').forEach((b) => b.addEventListener('click', () => {
+    $('set-primary').value = b.dataset.p;
+    $('set-accent').value = b.dataset.a;
+    applyThemeFromInputs(true);
+  }));
+  $('set-primary').addEventListener('input', () => applyThemeFromInputs(false));
+  $('set-accent').addEventListener('input', () => applyThemeFromInputs(false));
+  $('set-primary').addEventListener('change', () => {
+    applyThemeFromInputs(true);
+    updatePwaManifest();
+  });
+  $('set-accent').addEventListener('change', () => applyThemeFromInputs(true));
 }
 
 if ('serviceWorker' in navigator) {
@@ -691,5 +816,7 @@ if ('serviceWorker' in navigator) {
 }
 
 loadSettings();
+applyTheme();
 bind();
+applyLogo();
 renderHome().then(() => show('home'));
