@@ -1,0 +1,16 @@
+{
+  "name": "pdf-compilatore-server",
+  "version": "1.0.0",
+  "description": "Backend SMTP per la PWA PDF Compilatore: riceve i PDF compilati e invia l'email.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.14"
+  }
+}

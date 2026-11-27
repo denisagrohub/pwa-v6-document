@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="description" content="Compila PDF compilabili rispondendo a domande e invia l'email pronta.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>PDF Compilatore</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="screen-title">PDF Compilatore</h1>
+    <button id="btn-settings" class="icon-btn" aria-label="Impostazioni">⚙️</button>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section id="screen-home" class="screen">
+      <div class="card">
+        <h2>I tuoi moduli PDF</h2>
+        <p class="hint">Aggiungi i PDF compilabili una sola volta: restano salvati nell'app anche offline.</p>
+        <ul id="pdf-list" class="pdf-list"></ul>
+        <div class="row">
+          <button id="btn-add-pdf" class="btn btn-secondary">➕ Aggiungi PDF</button>
+          <button id="btn-start" class="btn btn-primary">▶️ Inizia compilazione</button>
+        </div>
+        <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+      </div>
+      <div id="home-status" class="status hidden"></div>
+    </section>
+
+    <!-- QUESTIONARIO -->
+    <section id="screen-quiz" class="screen hidden">
+      <div class="progress-wrap">
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <span id="progress-text">0 / 0</span>
+      </div>
+      <div class="card">
+        <p id="q-pdf" class="q-pdf"></p>
+        <h2 id="q-label">Domanda</h2>
+        <p id="q-hint" class="hint"></p>
+        <div id="q-input-area"></div>
+        <div class="row space-between">
+          <button id="btn-back" class="btn btn-secondary">← Indietro</button>
+          <div class="row">
+            <button id="btn-skip" class="btn btn-ghost">Salta</button>
+            <button id="btn-next" class="btn btn-primary">Avanti →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EMAIL + INVIO -->
+    <section id="screen-email" class="screen hidden">
+      <div class="card">
+        <h2>Email di invio</h2>
+        <label>Destinatario
+          <input id="email-to" type="email" inputmode="email" placeholder="destinatario@esempio.it">
+        </label>
+        <label>Oggetto
+          <input id="email-subject" type="text" placeholder="Oggetto dell'email">
+        </label>
+        <label>Messaggio
+          <textarea id="email-body" rows="5" placeholder="Testo dell'email..."></textarea>
+        </label>
+        <p id="email-summary" class="hint"></p>
+        <button id="btn-send" class="btn btn-primary btn-wide">📤 Invia email con i PDF compilati</button>
+        <button id="btn-fallback" class="btn btn-secondary btn-wide hidden">Condividi i PDF compilati</button>
+        <div id="send-status" class="status hidden"></div>
+        <div class="row">
+          <button id="btn-download" class="btn btn-ghost">⬇️ Scarica i PDF compilati</button>
+          <button id="btn-restart" class="btn btn-ghost">↺ Riparta da capo</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPOSTAZIONI -->
+    <section id="screen-settings" class="screen hidden">
+      <div class="card">
+        <h2>Server di invio</h2>
+        <p class="hint">Indirizzo del server SMTP configurato (lascia vuoto per usare lo stesso dominio dell'app).</p>
+        <label>URL API
+          <input id="set-api" type="url" inputmode="url" placeholder="https://mioserver.example/api">
+        </label>
+        <button id="btn-test-api" class="btn btn-secondary">Verifica connessione</button>
+        <div id="api-status" class="status hidden"></div>
+      </div>
+      <div class="card">
+        <h2>Dati predefiniti</h2>
+        <p class="hint">Vengono proposti automaticamente quando una domanda corrisponde (modificabili ogni volta).</p>
+        <div id="profile-fields"></div>
+      </div>
+      <div class="card">
+        <h2>Email predefinita</h2>
+        <label>Destinatario predefinito
+          <input id="set-recipient" type="email" inputmode="email">
+        </label>
+        <label>Oggetto predefinito
+          <input id="set-subject" type="text">
+        </label>
+        <label>Firma (aggiunta in coda al messaggio)
+          <textarea id="set-signature" rows="3"></textarea>
+        </label>
+      </div>
+      <div class="row">
+        <button id="btn-settings-back" class="btn btn-primary">← Torna indietro</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
