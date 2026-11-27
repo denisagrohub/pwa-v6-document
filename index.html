@@ -43,6 +43,10 @@
         <h2>I tuoi moduli PDF</h2>
         <p class="hint">Aggiungi i PDF compilabili una sola volta: restano salvati nell'app anche offline.</p>
         <ul id="pdf-list" class="pdf-list"></ul>
+        <label>Progetto (cartella dell'archivio)
+          <input id="project-name" type="text" list="project-list" placeholder="Es. Cliente Rossi — 2025">
+          <datalist id="project-list"></datalist>
+        </label>
         <div class="row">
           <button id="btn-add-pdf" class="btn btn-secondary">➕ Aggiungi PDF</button>
           <button id="btn-start" class="btn btn-primary">▶️ Inizia compilazione</button>
@@ -51,6 +55,11 @@
       </div>
       <div id="server-pill" class="server-pill hidden"></div>
       <div id="home-status" class="status hidden"></div>
+      <div class="card">
+        <h2>📁 Archivio compilati</h2>
+        <p class="hint">Ogni invio viene salvato nel progetto scelto, organizzato per cartella e sempre disponibile, anche offline.</p>
+        <div id="archive-list"></div>
+      </div>
     </section>
 
     <!-- QUESTIONARIO -->

@@ -479,3 +479,48 @@ input[type="color"] {
   color: var(--muted);
   line-height: 1.45;
 }
+
+/* ---------- archivio compilati ---------- */
+
+.arch-project {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.arch-project summary {
+  cursor: pointer;
+  padding: 13px 14px;
+  font-weight: 600;
+  font-size: 0.93rem;
+  list-style-position: inside;
+}
+.arch-project summary::marker { color: var(--accent); }
+.arch-project[open] summary {
+  border-bottom: 1px solid var(--border);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.arch-run {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.arch-run + .arch-run { border-top: 1px solid var(--border); }
+.arch-run > div:first-child > div:first-child { font-weight: 600; font-size: 0.88rem; }
+
+.run-actions { display: flex; gap: 2px; flex: none; }
+.run-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 7px 8px;
+  border-radius: 8px;
+}
+.run-actions button:hover { background: var(--primary-soft); }

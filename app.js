@@ -106,13 +106,18 @@ async function loadPdfLib() {
 
 const DB_NAME = 'pdf-compilatore';
 const STORE = 'pdfs';
+const ARCHIVE = 'archive';
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) {
-        req.result.createObjectStore(STORE, { keyPath: 'name' });
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'name' });
+      }
+      if (!db.objectStoreNames.contains(ARCHIVE)) {
+        db.createObjectStore(ARCHIVE, { keyPath: 'id', autoIncrement: true });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -142,6 +147,42 @@ async function dbDelete(name) {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const req = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(name);
+    req.onsuccess = resolve;
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function archiveAdd(run) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(ARCHIVE, 'readwrite').objectStore(ARCHIVE).add(run);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function archiveAll() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(ARCHIVE, 'readonly').objectStore(ARCHIVE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function archivePut(run) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(ARCHIVE, 'readwrite').objectStore(ARCHIVE).put(run);
+    req.onsuccess = resolve;
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function archiveDelete(id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(ARCHIVE, 'readwrite').objectStore(ARCHIVE).delete(id);
     req.onsuccess = resolve;
     req.onerror = () => reject(req.error);
   });
@@ -310,7 +351,9 @@ async function renderHome() {
   const list = $('pdf-list');
   list.innerHTML = '';
   const recs = await dbAll();
-  state.pdfs = recs.map((r) => ({ name: r.name, bytes: r.bytes, size: r.size }));
+  state.pdfs = recs.filter((r) => r.name !== '__logo__').map((r) => ({ name: r.name, bytes: r.bytes, size: r.size }));
+  $('project-name').value = state.settings.lastProject || '';
+  renderArchive();
   if (!state.pdfs.length) {
     const li = document.createElement('li');
     li.innerHTML = '<span class="empty-note">Nessun PDF salvato. Tocca “Aggiungi PDF” per iniziare.</span>';
@@ -356,6 +399,105 @@ async function addPdfFiles(files) {
   if (ok.length) status($('home-status'), 'Aggiunti ' + ok.length + ' PDF: ' + ok.join(', '), 'ok');
 }
 
+/* ---------- archivio compilati ---------- */
+
+async function renderArchive() {
+  const wrap = $('archive-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const runs = (await archiveAll()).sort((a, b) => b.date.localeCompare(a.date));
+  const dl = $('project-list');
+  dl.innerHTML = '';
+  for (const p of [...new Set(runs.map((r) => r.project))]) {
+    const o = document.createElement('option');
+    o.value = p;
+    dl.appendChild(o);
+  }
+  if (!runs.length) {
+    const note = document.createElement('p');
+    note.className = 'empty-note';
+    note.textContent = 'Nessun documento compilato: apparirà qui dopo il primo invio.';
+    wrap.appendChild(note);
+    return;
+  }
+  const byProject = new Map();
+  for (const run of runs) {
+    if (!byProject.has(run.project)) byProject.set(run.project, []);
+    byProject.get(run.project).push(run);
+  }
+  for (const [project, projectRuns] of byProject) {
+    const det = document.createElement('details');
+    det.className = 'arch-project';
+    const sum = document.createElement('summary');
+    sum.textContent = '📁 ' + project + ' (' + projectRuns.length + ')';
+    det.appendChild(sum);
+    for (const run of projectRuns) det.appendChild(runRow(run));
+    wrap.appendChild(det);
+  }
+}
+
+function runRow(run) {
+  const row = document.createElement('div');
+  row.className = 'arch-run';
+  const info = document.createElement('div');
+  const d = new Date(run.date);
+  const title = document.createElement('div');
+  title.textContent = d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const meta = document.createElement('div');
+  meta.className = 'pdf-meta';
+  meta.textContent = run.files.length + ' PDF · ' + (run.sent ? '✅ inviata' : '⚠️ non inviata');
+  info.appendChild(title);
+  info.appendChild(meta);
+  const actions = document.createElement('div');
+  actions.className = 'run-actions';
+  const dlBtn = document.createElement('button');
+  dlBtn.textContent = '⬇️';
+  dlBtn.title = 'Scarica i PDF di questo invio';
+  dlBtn.addEventListener('click', () => downloadRun(run));
+  const shareBtn = document.createElement('button');
+  shareBtn.textContent = '📤';
+  shareBtn.title = 'Condividi i PDF di questo invio';
+  shareBtn.addEventListener('click', () => shareRun(run));
+  const delBtn = document.createElement('button');
+  delBtn.textContent = '🗑';
+  delBtn.title = 'Elimina questo invio dall\'archivio';
+  delBtn.addEventListener('click', async () => {
+    await archiveDelete(run.id);
+    renderArchive();
+  });
+  actions.appendChild(dlBtn);
+  actions.appendChild(shareBtn);
+  actions.appendChild(delBtn);
+  row.appendChild(info);
+  row.appendChild(actions);
+  return row;
+}
+
+function downloadRun(run) {
+  for (const f of run.files) {
+    const blob = new Blob([f.bytes], { type: 'application/pdf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = f.name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+}
+
+async function shareRun(run) {
+  const files = run.files.map((f) => new File([f.bytes], f.name, { type: 'application/pdf' }));
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try {
+      await navigator.share({ files, title: run.project });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  downloadRun(run);
+}
+
 /* ---------- quiz ---------- */
 
 function buildQuestions() {
@@ -368,6 +510,9 @@ async function startQuiz() {
     status($('home-status'), 'Aggiungi almeno un PDF prima di iniziare.', 'err');
     return;
   }
+  state.project = $('project-name').value.trim();
+  state.settings.lastProject = state.project;
+  saveSettings();
   buildQuestions();
   for (let i = 0; i < state.pdfs.length; i++) {
     try {
@@ -626,6 +771,12 @@ async function sendEmail() {
   status(st, 'Compilo i PDF e preparo l’invio…', 'info');
   try {
     const files = await compilePdfs();
+    const runId = await archiveAdd({
+      project: state.project || 'Senza progetto',
+      date: new Date().toISOString(),
+      files: files.map((f) => ({ name: f.name, bytes: f.bytes })),
+      sent: false
+    });
     const payload = {
       to,
       subject,
@@ -646,9 +797,11 @@ async function sendEmail() {
     }
     hideLoader();
     if (r.ok) {
-      status(st, '✅ Email inviata a ' + to + ' con ' + payload.attachments.length + ' PDF allegati.', 'ok');
+      await archivePut({ id: runId, project: state.project || 'Senza progetto', date: new Date().toISOString(), files: files.map((f) => ({ name: f.name, bytes: f.bytes })), sent: true });
+      status(st, '✅ Email inviata a ' + to + ' con ' + payload.attachments.length + ' PDF allegati. Salvata nell\'archivio.', 'ok');
       state.questions = [];
       state.pdfs.forEach((p) => (p.compiled = true));
+      renderArchive();
     } else {
       throw new Error(r.data.error || (r.status ? 'Errore del server (' + r.status + ')' : 'Server non raggiungibile'));
     }
@@ -665,6 +818,13 @@ async function sharePdfs() {
   try {
     status(st, 'Compilo i PDF…', 'info');
     const files = await compilePdfs();
+    await archiveAdd({
+      project: state.project || 'Senza progetto',
+      date: new Date().toISOString(),
+      files: files.map((f) => ({ name: f.name, bytes: f.bytes })),
+      sent: false
+    });
+    renderArchive();
     const shareFiles = files.map((f) => new File([f.bytes], f.name, { type: 'application/pdf' }));
     const to = $('email-to').value.trim();
     const subject = $('email-subject').value.trim();
