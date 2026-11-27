@@ -524,3 +524,42 @@ input[type="color"] {
   border-radius: 8px;
 }
 .run-actions button:hover { background: var(--primary-soft); }
+
+/* ---------- firma ---------- */
+
+.sign-canvas {
+  width: 100%;
+  height: 220px;
+  background: #ffffff;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  touch-action: none;
+  cursor: crosshair;
+  display: block;
+  margin-top: 16px;
+}
+.sign-canvas:active { border-color: var(--accent); }
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 0.93rem;
+}
+.check-row:hover { background: var(--primary-soft); }
+.check-row input[type='checkbox'] {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--primary);
+  flex: none;
+  margin-top: 1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sign-canvas { border-color: #3a4370; }
+}

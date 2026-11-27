@@ -13,7 +13,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="screen-title"><img id="brand-logo" src="icons/icon-192.png" alt="">PDF Compilatore</h1>
+    <h1 id="screen-title"><img id="brand-logo" src="icons/icon-192.png" alt=""><span id="title-text">PDF Compilatore</span></h1>
     <button id="btn-settings" class="icon-btn" aria-label="Impostazioni">⚙️</button>
   </header>
 
@@ -84,6 +84,19 @@
       </div>
     </section>
 
+    <!-- FIRMA -->
+    <section id="screen-sign" class="screen hidden">
+      <div class="card">
+        <h2>✍️ La tua firma</h2>
+        <p class="hint">Alcuni documenti contengono campi firma. Disegna la tua firma qui sotto: verrà inserita automaticamente in tutti i campi firma dei PDF, e resterà salvata per le prossime volte.</p>
+        <canvas id="sign-canvas" class="sign-canvas"></canvas>
+        <div class="row space-between">
+          <button id="btn-sign-clear" class="btn btn-secondary">🧽 Pulisci</button>
+          <button id="btn-sign-ok" class="btn btn-primary">Usa questa firma →</button>
+        </div>
+      </div>
+    </section>
+
     <!-- EMAIL + INVIO -->
     <section id="screen-email" class="screen hidden">
       <div class="card">
@@ -139,6 +152,18 @@
           <span class="tp-btn">Pulsante</span>
           <span class="tp-gold">Accento</span>
         </div>
+      </div>
+      <div class="card">
+        <h2>Firma e certificazione</h2>
+        <p class="hint">Controlla cosa succede dopo la compilazione, prima dell'invio via email.</p>
+        <label class="check-row">
+          <input id="set-sign-enabled" type="checkbox">
+          <span>✍️ Firma touchscreen nei campi firma dei PDF</span>
+        </label>
+        <label class="check-row">
+          <input id="set-ots-enabled" type="checkbox">
+          <span>🔐 Certificazione blockchain OpenTimestamps (hash SHA-256 ancorato su Bitcoin, prova .ots allegata)</span>
+        </label>
       </div>
       <div class="card">
         <h2>Server di invio</h2>

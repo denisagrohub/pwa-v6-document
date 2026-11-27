@@ -2,6 +2,13 @@
 'use strict';
 
 const PDFLIB_URL = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+const SIGNPAD_URL = 'https://unpkg.com/signature_pad@5/dist/signature_pad.umd.min.js';
+const OTS_CALENDARS = [
+  'https://a.pool.opentimestamps.org',
+  'https://b.pool.opentimestamps.org',
+  'https://ots.btc.catallaxy.com',
+  'https://alice.btc.catallaxy.com'
+];
 
 const PROFILE_KEYS = [
   { key: 'nome', label: 'Nome' },
@@ -31,8 +38,14 @@ const state = {
     subject: '',
     signature: '',
     profile: {},
-    theme: { primary: '#4338ca', accent: '#d4af37' }
-  }
+    theme: { primary: '#4338ca', accent: '#d4af37' },
+    signEnabled: true,
+    otsEnabled: true
+  },
+  signTargets: [],
+  signatureDone: false,
+  signatureBytes: null,
+  project: ''
 };
 
 /* ---------- helpers ---------- */
@@ -42,8 +55,9 @@ const $ = (id) => document.getElementById(id);
 function show(screen) {
   for (const s of document.querySelectorAll('.screen')) s.classList.add('hidden');
   $('screen-' + screen).classList.remove('hidden');
-  const titles = { home: 'PDF Compilatore', quiz: 'Compilazione', email: 'Email di invio', settings: 'Impostazioni' };
-  $('screen-title').textContent = titles[screen] || '';
+  const titles = { home: 'PDF Compilatore', quiz: 'Compilazione', sign: 'Firma', email: 'Email di invio', settings: 'Impostazioni' };
+  const titleText = $('title-text');
+  if (titleText) titleText.textContent = titles[screen] || '';
   window.scrollTo(0, 0);
   if (screen === 'home') checkServerStatus();
 }
@@ -91,15 +105,85 @@ function profileGuess(label) {
   return '';
 }
 
-async function loadPdfLib() {
-  if (window.PDFLib) return;
-  await new Promise((resolve, reject) => {
+function loadScript(url, errText) {
+  return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = PDFLIB_URL;
+    s.src = url;
     s.onload = resolve;
-    s.onerror = () => reject(new Error('Impossibile scaricare pdf-lib'));
+    s.onerror = () => reject(new Error(errText));
     document.head.appendChild(s);
   });
+}
+
+async function loadPdfLib() {
+  if (window.PDFLib) return;
+  await loadScript(PDFLIB_URL, 'Impossibile scaricare pdf-lib');
+}
+
+async function loadSignaturePad() {
+  if (window.SignaturePad) return;
+  await loadScript(SIGNPAD_URL, 'Impossibile scaricare la libreria firma');
+}
+
+async function sha256Hex(bytes) {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  } catch (_) {
+    return '';
+  }
+}
+
+async function otsStamp(hashHex) {
+  if (!hashHex) return null;
+  for (const calendar of OTS_CALENDARS) {
+    try {
+      const res = await fetch(calendar + '/timestamp/' + hashHex, { method: 'POST' });
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+    } catch (_) { /* calendario successivo */ }
+  }
+  return null;
+}
+
+function bytesToB64(bytes) {
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
+async function extractSignatureTargets(bytes) {
+  await loadPdfLib();
+  const lib = window.PDFLib;
+  const targets = [];
+  try {
+    const doc = await lib.PDFDocument.load(bytes, { ignoreEncryption: true });
+    const acroForm = doc.getForm().acroForm;
+    const formDict = acroForm && (acroForm.dict || acroForm);
+    const fields = formDict && formDict.get(lib.PDFName.of('Fields'));
+    if (!fields) return targets;
+    const pages = doc.getPages();
+    for (const ref of fields.asArray()) {
+      const dict = doc.context.lookup(ref);
+      if (!dict || !dict.get(lib.PDFName.of('FT')) || dict.get(lib.PDFName.of('FT')).toString() !== '/Sig') continue;
+      const kids = dict.get(lib.PDFName.of('Kids'));
+      const widgets = kids ? kids.asArray().map((r) => doc.context.lookup(r)) : [dict];
+      for (const w of widgets) {
+        if (!w || !w.get(lib.PDFName.of('Rect'))) continue;
+        const rect = w.get(lib.PDFName.of('Rect')).asRectangle();
+        let pageIndex = pages.length - 1;
+        const pageRef = w.get(lib.PDFName.of('P'));
+        if (pageRef) {
+          const idx = pages.findIndex((p) => p.ref === pageRef);
+          if (idx >= 0) pageIndex = idx;
+        }
+        targets.push({ pageIndex, rect });
+      }
+    }
+  } catch (_) { /* nessun campo firma rilevabile */ }
+  return targets;
 }
 
 /* ---------- IndexedDB ---------- */
@@ -195,6 +279,8 @@ function loadSettings() {
     const raw = localStorage.getItem('pdf-compilatore-settings');
     if (raw) Object.assign(state.settings, JSON.parse(raw));
     state.settings.theme = Object.assign({ primary: '#4338ca', accent: '#d4af37' }, state.settings.theme || {});
+    if (state.settings.signEnabled === undefined) state.settings.signEnabled = true;
+    if (state.settings.otsEnabled === undefined) state.settings.otsEnabled = true;
   } catch (_) { /* ignore */ }
 }
 
@@ -283,7 +369,8 @@ async function logoRecord() {
 async function applyLogo() {
   const rec = await logoRecord();
   const url = rec ? URL.createObjectURL(new Blob([rec.bytes], { type: 'image/png' })) : 'icons/icon-192.png';
-  $('brand-logo').src = url;
+  const brand = $('brand-logo');
+  if (brand) brand.src = url;
   $('logo-preview-img').src = url;
   const favicon = document.querySelector('link[rel="icon"]');
   if (favicon) favicon.href = url;
@@ -513,6 +600,11 @@ async function startQuiz() {
   state.project = $('project-name').value.trim();
   state.settings.lastProject = state.project;
   saveSettings();
+  state.signatureDone = false;
+  state.signTargets = [];
+  for (let i = 0; i < state.pdfs.length; i++) {
+    state.signTargets[i] = await extractSignatureTargets(state.pdfs[i].bytes);
+  }
   buildQuestions();
   for (let i = 0; i < state.pdfs.length; i++) {
     try {
@@ -688,9 +780,102 @@ async function sendOnce(payload) {
   }
 }
 
+/* ---------- firma ---------- */
+
+let signPad = null;
+
+async function showSignScreen() {
+  show('sign');
+  try {
+    await loadSignaturePad();
+  } catch (err) {
+    status($('home-status'), err.message, 'err');
+    showEmailStepDirect();
+    return;
+  }
+  const canvas = $('sign-canvas');
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  const width = canvas.offsetWidth || canvas.parentElement.clientWidth - 40;
+  const height = 220;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.height = height + 'px';
+  canvas.getContext('2d').scale(ratio, ratio);
+  if (signPad) signPad.off();
+  signPad = new SignaturePad(canvas, { penColor: '#1c1c4e', minWidth: 1.1 });
+  const rec = (await dbAll()).find((r) => r.name === '__signature__');
+  if (rec) {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min((width * 0.6) / img.width, (height * 0.7) / img.height, 1);
+      canvas.getContext('2d').drawImage(img, 10, 10, img.width * scale, img.height * scale);
+    };
+    img.src = URL.createObjectURL(new Blob([rec.bytes], { type: 'image/png' }));
+  }
+}
+
+function showEmailStepDirect() {
+  state.signatureDone = true;
+  showEmailStep();
+}
+
+function trimSignatureDataUrl(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, c.width, c.height).data;
+      let minX = c.width, minY = c.height, maxX = -1, maxY = -1;
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          if (data[(y * c.width + x) * 4 + 3] > 8) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) return resolve(dataUrl);
+      const pad = 8;
+      const cw = Math.min(maxX + pad, c.width) - Math.max(minX - pad, 0);
+      const ch = Math.min(maxY + pad, c.height) - Math.max(minY - pad, 0);
+      const out = document.createElement('canvas');
+      out.width = cw;
+      out.height = ch;
+      out.getContext('2d').drawImage(img, Math.max(minX - pad, 0), Math.max(minY - pad, 0), cw, ch, 0, 0, cw, ch);
+      resolve(out.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function confirmSignature() {
+  if (!signPad || signPad.isEmpty()) {
+    alert('Disegna la firma prima di continuare, oppure torna indietro con ⚙️ e disattiva la firma.');
+    return;
+  }
+  const trimmed = await trimSignatureDataUrl(signPad.toDataURL('image/png'));
+  const bin = atob(trimmed.split(',')[1]);
+  state.signatureBytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  await dbPut({ name: '__signature__', bytes: state.signatureBytes, size: state.signatureBytes.length });
+  showEmailStep();
+}
+
 /* ---------- email step ---------- */
 
 function showEmailStep() {
+  if (!state.signatureDone && state.settings.signEnabled !== false &&
+      state.signTargets.some((t) => t && t.length)) {
+    state.signatureDone = true;
+    showSignScreen();
+    return;
+  }
   const s = state.settings;
   $('email-to').value = s.recipient || '';
   $('email-subject').value = s.subject || 'Moduli PDF compilati';
@@ -746,10 +931,28 @@ async function compilePdfs() {
         console.warn('Campo saltato: ' + q.field.name, err);
       }
     }
+    if (state.signatureBytes && (state.signTargets[pdfIndex] || []).length) {
+      try {
+        const img = await doc.embedPng(state.signatureBytes);
+        for (const t of state.signTargets[pdfIndex]) {
+          const page = doc.getPages()[t.pageIndex];
+          if (!page) continue;
+          const pad = Math.max(Math.min(t.rect.width, t.rect.height) * 0.06, 1);
+          page.drawImage(img, {
+            x: t.rect.x + pad,
+            y: t.rect.y + pad,
+            width: Math.max(t.rect.width - pad * 2, 1),
+            height: Math.max(t.rect.height - pad * 2, 1)
+          });
+        }
+      } catch (err) {
+        console.warn('Firma non applicata', err);
+      }
+    }
     const bytes = await doc.save();
     const dot = pdf.name.lastIndexOf('.');
     const name = (dot > 0 ? pdf.name.slice(0, dot) : pdf.name) + '-compilato.pdf';
-    out.push({ name, bytes });
+    out.push({ name, bytes, hash: await sha256Hex(bytes) });
   }
   return out;
 }
@@ -771,20 +974,35 @@ async function sendEmail() {
   status(st, 'Compilo i PDF e preparo l’invio…', 'info');
   try {
     const files = await compilePdfs();
+    const hashNotes = [];
+    if (state.settings.otsEnabled !== false) {
+      showLoader('Certificazione su blockchain (OpenTimestamps)…');
+      for (const f of files) {
+        if (!f.hash) continue;
+        const ots = await otsStamp(f.hash);
+        if (ots) {
+          f.ots = ots;
+          hashNotes.push(f.name + ' — SHA-256 ' + f.hash + ' — proof OpenTimestamps allegata (.ots), ancoraggio Bitcoin entro ore.');
+        } else {
+          hashNotes.push(f.name + ' — SHA-256 ' + f.hash + ' — proof non disponibile, hash registrato in questa email.');
+        }
+      }
+    }
     const runId = await archiveAdd({
       project: state.project || 'Senza progetto',
       date: new Date().toISOString(),
-      files: files.map((f) => ({ name: f.name, bytes: f.bytes })),
+      files: files.map((f) => ({ name: f.name, bytes: f.bytes, ots: f.ots || null })),
       sent: false
     });
+    const attachments = files.map((f) => ({ filename: f.name, content: bytesToB64(f.bytes) }));
+    for (const f of files) {
+      if (f.ots) attachments.push({ filename: f.name + '.ots', content: bytesToB64(f.ots) });
+    }
     const payload = {
       to,
       subject,
-      body,
-      attachments: files.map((f) => ({
-        filename: f.name,
-        content: btoa(String.fromCharCode(...f.bytes))
-      }))
+      body: hashNotes.length ? body + '\n\n🔐 Integrità documenti (SHA-256):\n' + hashNotes.join('\n') : body,
+      attachments
     };
     showLoader('Invio in corso…');
     let r = await sendOnce(payload);
@@ -866,6 +1084,8 @@ function renderSettings() {
   $('set-signature').value = state.settings.signature;
   $('set-primary').value = state.settings.theme.primary;
   $('set-accent').value = state.settings.theme.accent;
+  $('set-sign-enabled').checked = state.settings.signEnabled !== false;
+  $('set-ots-enabled').checked = state.settings.otsEnabled !== false;
   applyLogo();
   const wrap = $('profile-fields');
   wrap.innerHTML = '';
@@ -889,6 +1109,8 @@ function applySettingsFromForm() {
   state.settings.recipient = $('set-recipient').value.trim();
   state.settings.subject = $('set-subject').value.trim();
   state.settings.signature = $('set-signature').value;
+  state.settings.signEnabled = $('set-sign-enabled').checked;
+  state.settings.otsEnabled = $('set-ots-enabled').checked;
   saveSettings();
 }
 
@@ -924,6 +1146,10 @@ function bind() {
   $('btn-back').addEventListener('click', prevQuestion);
   $('btn-skip').addEventListener('click', skipQuestion);
   $('btn-send').addEventListener('click', sendEmail);
+  $('btn-sign-ok').addEventListener('click', confirmSignature);
+  $('btn-sign-clear').addEventListener('click', () => {
+    if (signPad) signPad.clear();
+  });
   $('btn-fallback').addEventListener('click', sharePdfs);
   $('btn-download').addEventListener('click', downloadPdfs);
   $('btn-restart').addEventListener('click', () => {
