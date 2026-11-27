@@ -20,6 +20,25 @@
   <main>
     <!-- HOME -->
     <section id="screen-home" class="screen">
+      <div class="hero">
+        <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustrazione: documento compilato">
+          <defs>
+            <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="72" r="62" fill="url(#hg1)" opacity="0.12"/>
+          <rect x="55" y="18" width="76" height="100" rx="10" fill="url(#hg1)"/>
+          <rect x="63" y="30" width="60" height="76" rx="5" fill="#ffffff"/>
+          <rect x="70" y="42" width="38" height="5" rx="2.5" fill="#4f46e5" opacity="0.85"/>
+          <rect x="70" y="54" width="46" height="4" rx="2" fill="#c7cdf9"/>
+          <rect x="70" y="64" width="30" height="4" rx="2" fill="#c7cdf9"/>
+          <rect x="70" y="74" width="42" height="4" rx="2" fill="#c7cdf9"/>
+          <circle cx="128" cy="102" r="17" fill="#067647"/>
+          <path d="M120.5 102.5l5 5 10-10" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p>Compila i tuoi moduli PDF rispondendo a poche domande e invia tutto via email, direttamente dal telefono.</p>
+      </div>
       <div class="card">
         <h2>I tuoi moduli PDF</h2>
         <p class="hint">Aggiungi i PDF compilabili una sola volta: restano salvati nell'app anche offline.</p>
@@ -41,6 +60,7 @@
       </div>
       <div class="card">
         <p id="q-pdf" class="q-pdf"></p>
+        <span id="q-type" class="q-type"></span>
         <h2 id="q-label">Domanda</h2>
         <p id="q-hint" class="hint"></p>
         <div id="q-input-area"></div>

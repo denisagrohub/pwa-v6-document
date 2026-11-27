@@ -276,6 +276,9 @@ function renderQuestion() {
   $('progress-text').textContent = (state.qIndex + 1) + ' / ' + total;
   $('q-pdf').textContent = q.pdfName;
   $('q-label').textContent = q.label;
+  $('q-type').textContent = q.type === 'choice' ? '\u26ab\ufe0f Scelta'
+    : q.type === 'yesno' ? '\u2705 S\u00ec o No'
+    : '\u270d\ufe0f Testo';
   $('q-hint').textContent = q.type === 'choice' ? 'Scegli una delle opzioni:'
     : q.type === 'yesno' ? 'Rispondi sì o no:'
     : (q.prefill ? 'Proposto dai tuoi dati predefiniti: puoi modificarlo.' : 'Scrivi la risposta:');
