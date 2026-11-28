@@ -40,7 +40,8 @@ const state = {
     profile: {},
     theme: { primary: '#4338ca', accent: '#d4af37' },
     signEnabled: true,
-    otsEnabled: true
+    otsEnabled: true,
+    services: { pdf: true }
   },
   signTargets: [],
   signQueue: [],
@@ -50,6 +51,110 @@ const state = {
   signatureBytes: null,
   project: ''
 };
+
+/* ---------- servizi ---------- */
+
+const SERVICES = [
+  {
+    id: 'pdf',
+    name: 'PDF Compilatore',
+    glyph: '\ud83d\udcc4',
+    gradient: 'svc-indigo',
+    available: true,
+    hint: 'Compila moduli e invia via email'
+  },
+  {
+    id: 'firma-remota',
+    name: 'Firma remota',
+    glyph: '\u270d\ufe0f',
+    gradient: 'svc-gold',
+    available: false,
+    hint: 'In arrivo'
+  },
+  {
+    id: 'scansione',
+    name: 'Scansione documenti',
+    glyph: '\ud83d\udcf7',
+    gradient: 'svc-indigo',
+    available: false,
+    hint: 'In arrivo'
+  },
+  {
+    id: 'rubrica',
+    name: 'Rubrica destinatari',
+    glyph: '\ud83d\udcd6',
+    gradient: 'svc-gold',
+    available: false,
+    hint: 'In arrivo'
+  }
+];
+
+function serviceEnabled(id) {
+  return state.settings.services[id] !== false;
+}
+
+function renderServices() {
+  const grid = $('services-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const active = SERVICES.filter((s) => serviceEnabled(s.id));
+  for (const s of active) {
+    const tile = document.createElement('button');
+    tile.className = 'service-tile';
+    tile.type = 'button';
+    const icon = document.createElement('span');
+    icon.className = 'service-icon ' + (s.gradient || 'svc-indigo');
+    icon.textContent = s.glyph;
+    const label = document.createElement('span');
+    label.className = 'service-label';
+    label.textContent = s.name;
+    tile.appendChild(icon);
+    tile.appendChild(label);
+    if (!s.available) {
+      tile.disabled = true;
+      tile.classList.add('service-soon');
+      tile.title = 'Servizio in arrivo';
+    }
+    tile.addEventListener('click', () => openService(s));
+    grid.appendChild(tile);
+  }
+  const pdfOn = serviceEnabled('pdf');
+  $('card-pdf').classList.toggle('hidden', !pdfOn);
+  $('archive-card').classList.toggle('hidden', !pdfOn);
+}
+
+function openService(s) {
+  if (s.id === 'pdf') {
+    const card = $('card-pdf');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.classList.remove('flash');
+    requestAnimationFrame(() => card.classList.add('flash'));
+  }
+}
+
+function renderServiceSettings() {
+  const wrap = $('services-settings');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const s of SERVICES) {
+    const row = document.createElement('label');
+    row.className = 'check-row';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = serviceEnabled(s.id);
+    input.disabled = !s.available;
+    input.addEventListener('change', () => {
+      state.settings.services[s.id] = input.checked;
+      saveSettings();
+      renderServices();
+    });
+    const span = document.createElement('span');
+    span.textContent = s.glyph + ' ' + s.name + (s.available ? '' : ' (in arrivo)');
+    row.appendChild(input);
+    row.appendChild(span);
+    wrap.appendChild(row);
+  }
+}
 
 /* ---------- helpers ---------- */
 
@@ -298,6 +403,7 @@ function loadSettings() {
     state.settings.theme = Object.assign({ primary: '#4338ca', accent: '#d4af37' }, state.settings.theme || {});
     if (state.settings.signEnabled === undefined) state.settings.signEnabled = true;
     if (state.settings.otsEnabled === undefined) state.settings.otsEnabled = true;
+    state.settings.services = Object.assign({ pdf: true }, state.settings.services || {});
   } catch (_) { /* ignore */ }
 }
 
@@ -1147,6 +1253,7 @@ function downloadPdfs() {
 /* ---------- settings screen ---------- */
 
 function renderSettings() {
+  renderServiceSettings();
   $('set-api').value = state.settings.apiBase;
   $('set-recipient').value = state.settings.recipient;
   $('set-subject').value = state.settings.subject;
@@ -1276,3 +1383,4 @@ applyTheme();
 bind();
 applyLogo();
 renderHome().then(() => show('home'));
+renderServices();

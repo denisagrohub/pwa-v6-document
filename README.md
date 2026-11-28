@@ -62,6 +62,10 @@ Se preferisci servire la PWA da un host statico separato (GitHub Pages, Netlify)
 
 ⚠️ Nota onesta: OpenTimestamps certifica che il file **esisteva ed era identico** in quella data (integrità + data certa). **Non** è una firma digitale legale (PAdES/CADES): per quella serve un certificato qualificato (es. firma con CNS/firma remota Aruba, InfoCert, ecc.).
 
+## Servizi (home stile iOS)
+
+La home mostra una **griglia di icone** (stile iOS) con i servizi attivi. In **Impostazioni → Servizi attivi** scegli quali icone mostrare. Il primo servizio è **PDF Compilatore** (tocca l'icona per andare ai moduli); altri servizi (firma remota, scansione, rubrica) sono già predisposti come "in arrivo" e verranno attivati uno alla volta.
+
 ## Archivio per progetto
 
 Ogni invio viene salvato in IndexedDB nella **cartella del progetto** scelto in home (es. "Cliente Rossi — 2025"). Dall'archivio puoi rivedere data/ora, stato di invio, scaricare o ricondividere i PDF e le prove `.ots`, oppure eliminare la sessione.

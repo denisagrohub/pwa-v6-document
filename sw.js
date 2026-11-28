@@ -1,4 +1,4 @@
-const CACHE = 'pdf-compilatore-v6';
+const CACHE = 'pdf-compilatore-v7';
 const PDFLIB_URL = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 const SIGNPAD_URL = 'https://unpkg.com/signature_pad@5/dist/signature_pad.umd.min.js';
 
