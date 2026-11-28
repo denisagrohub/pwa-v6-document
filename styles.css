@@ -563,3 +563,9 @@ input[type="color"] {
 @media (prefers-color-scheme: dark) {
   .sign-canvas { border-color: #3a4370; }
 }
+
+.sign-field {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 1.02rem;
+}

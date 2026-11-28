@@ -88,10 +88,19 @@
     <section id="screen-sign" class="screen hidden">
       <div class="card">
         <h2>✍️ La tua firma</h2>
-        <p class="hint">Alcuni documenti contengono campi firma. Disegna la tua firma qui sotto: verrà inserita automaticamente in tutti i campi firma dei PDF, e resterà salvata per le prossime volte.</p>
+        <p id="sign-progress" class="hint"></p>
+        <p id="sign-field" class="q-pdf sign-field"></p>
+        <p class="hint">Se il documento ha più firmatari (es. cliente e direttore), ti chiederemo una firma per ciascuno, una alla volta. La firma viene inserita nei campi firma dei PDF e resta salvata per le prossime volte.</p>
         <canvas id="sign-canvas" class="sign-canvas"></canvas>
+        <label id="sign-all-row" class="check-row hidden">
+          <input id="sign-all" type="checkbox">
+          <span>Usa questa firma anche per i campi firma successivi</span>
+        </label>
         <div class="row space-between">
-          <button id="btn-sign-clear" class="btn btn-secondary">🧽 Pulisci</button>
+          <div class="row">
+            <button id="btn-sign-clear" class="btn btn-secondary">🧽 Pulisci</button>
+            <button id="btn-sign-skip" class="btn btn-ghost">Salta</button>
+          </div>
           <button id="btn-sign-ok" class="btn btn-primary">Usa questa firma →</button>
         </div>
       </div>

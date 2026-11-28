@@ -43,6 +43,9 @@ const state = {
     otsEnabled: true
   },
   signTargets: [],
+  signQueue: [],
+  signQueueIndex: 0,
+  signResults: {},
   signatureDone: false,
   signatureBytes: null,
   project: ''
@@ -154,6 +157,19 @@ function bytesToB64(bytes) {
   return btoa(bin);
 }
 
+function pdfTextValue(value) {
+  if (!value) return '';
+  try { if (typeof value.decodeText === 'function') return value.decodeText(); } catch (_) { /* fallback */ }
+  try { if (typeof value.asString === 'function') return value.asString(); } catch (_) { /* fallback */ }
+  return value.toString().replace(/^\//, '');
+}
+
+function prettySignLabel(name) {
+  const raw = String(name || 'Firma').replace(/[_\-\.]+/g, ' ').trim();
+  const spaced = raw.replace(/([a-zà-ù])([A-Z])/g, '$1 $2');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 async function extractSignatureTargets(bytes) {
   await loadPdfLib();
   const lib = window.PDFLib;
@@ -168,6 +184,7 @@ async function extractSignatureTargets(bytes) {
     for (const ref of fields.asArray()) {
       const dict = doc.context.lookup(ref);
       if (!dict || !dict.get(lib.PDFName.of('FT')) || dict.get(lib.PDFName.of('FT')).toString() !== '/Sig') continue;
+      const fieldName = pdfTextValue(dict.get(lib.PDFName.of('T')));
       const kids = dict.get(lib.PDFName.of('Kids'));
       const widgets = kids ? kids.asArray().map((r) => doc.context.lookup(r)) : [dict];
       for (const w of widgets) {
@@ -179,7 +196,7 @@ async function extractSignatureTargets(bytes) {
           const idx = pages.findIndex((p) => p.ref === pageRef);
           if (idx >= 0) pageIndex = idx;
         }
-        targets.push({ pageIndex, rect });
+        targets.push({ pageIndex, rect, name: fieldName || pdfTextValue(w.get(lib.PDFName.of('T'))) || 'Firma' });
       }
     }
   } catch (_) { /* nessun campo firma rilevabile */ }
@@ -784,8 +801,25 @@ async function sendOnce(payload) {
 
 let signPad = null;
 
+function buildSignQueue() {
+  state.signQueue = [];
+  state.signQueueIndex = 0;
+  state.signResults = {};
+  for (let i = 0; i < state.pdfs.length; i++) {
+    const seen = new Set();
+    for (const t of state.signTargets[i] || []) {
+      if (seen.has(t.name)) continue;
+      seen.add(t.name);
+      state.signQueue.push({ pdfIndex: i, pdfName: state.pdfs[i].name, name: t.name });
+    }
+  }
+}
+
 async function showSignScreen() {
   show('sign');
+  const item = state.signQueue[state.signQueueIndex];
+  const total = state.signQueue.length;
+  if (!item) { state.signatureDone = true; showEmailStep(); return; }
   try {
     await loadSignaturePad();
   } catch (err) {
@@ -793,6 +827,14 @@ async function showSignScreen() {
     showEmailStepDirect();
     return;
   }
+  const progress = $('sign-progress');
+  progress.textContent = total > 1
+    ? 'Firma ' + (state.signQueueIndex + 1) + ' di ' + total + ' · Documento: ' + item.pdfName
+    : 'Documento: ' + item.pdfName;
+  progress.classList.remove('hidden');
+  $('sign-field').textContent = prettySignLabel(item.name);
+  $('sign-all-row').classList.toggle('hidden', total - state.signQueueIndex < 2);
+  $('sign-all').checked = false;
   const canvas = $('sign-canvas');
   const ratio = Math.max(window.devicePixelRatio || 1, 1);
   const width = canvas.offsetWidth || canvas.parentElement.clientWidth - 40;
@@ -817,6 +859,25 @@ async function showSignScreen() {
 function showEmailStepDirect() {
   state.signatureDone = true;
   showEmailStep();
+}
+
+function advanceSignQueue(bytes, applyAll) {
+  const item = state.signQueue[state.signQueueIndex];
+  if (item && bytes) {
+    if (!state.signResults[item.pdfIndex]) state.signResults[item.pdfIndex] = {};
+    state.signResults[item.pdfIndex][item.name] = bytes;
+  }
+  state.signQueueIndex++;
+  if (applyAll) {
+    while (state.signQueueIndex < state.signQueue.length) {
+      const next = state.signQueue[state.signQueueIndex];
+      if (!state.signResults[next.pdfIndex]) state.signResults[next.pdfIndex] = {};
+      state.signResults[next.pdfIndex][next.name] = bytes;
+      state.signQueueIndex++;
+    }
+  }
+  if (state.signQueueIndex < state.signQueue.length) showSignScreen();
+  else { state.signatureDone = true; showEmailStep(); }
 }
 
 function trimSignatureDataUrl(dataUrl) {
@@ -857,14 +918,18 @@ function trimSignatureDataUrl(dataUrl) {
 
 async function confirmSignature() {
   if (!signPad || signPad.isEmpty()) {
-    alert('Disegna la firma prima di continuare, oppure torna indietro con ⚙️ e disattiva la firma.');
+    alert('Disegna la firma prima di continuare, oppure salta questo campo o disattiva la firma dalle Impostazioni.');
     return;
   }
   const trimmed = await trimSignatureDataUrl(signPad.toDataURL('image/png'));
   const bin = atob(trimmed.split(',')[1]);
   state.signatureBytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
   await dbPut({ name: '__signature__', bytes: state.signatureBytes, size: state.signatureBytes.length });
-  showEmailStep();
+  advanceSignQueue(state.signatureBytes, $('sign-all').checked);
+}
+
+function skipSignature() {
+  advanceSignQueue(null, false);
 }
 
 /* ---------- email step ---------- */
@@ -872,7 +937,7 @@ async function confirmSignature() {
 function showEmailStep() {
   if (!state.signatureDone && state.settings.signEnabled !== false &&
       state.signTargets.some((t) => t && t.length)) {
-    state.signatureDone = true;
+    buildSignQueue();
     showSignScreen();
     return;
   }
@@ -931,14 +996,18 @@ async function compilePdfs() {
         console.warn('Campo saltato: ' + q.field.name, err);
       }
     }
-    if (state.signatureBytes && (state.signTargets[pdfIndex] || []).length) {
+    if (state.settings.signEnabled !== false && (state.signTargets[pdfIndex] || []).length) {
+      const perPdf = state.signResults[pdfIndex] || {};
+      const imgs = {};
       try {
-        const img = await doc.embedPng(state.signatureBytes);
         for (const t of state.signTargets[pdfIndex]) {
+          const sigBytes = perPdf[t.name];
+          if (!sigBytes) continue;
+          if (!imgs[t.name]) imgs[t.name] = await doc.embedPng(sigBytes);
           const page = doc.getPages()[t.pageIndex];
           if (!page) continue;
           const pad = Math.max(Math.min(t.rect.width, t.rect.height) * 0.06, 1);
-          page.drawImage(img, {
+          page.drawImage(imgs[t.name], {
             x: t.rect.x + pad,
             y: t.rect.y + pad,
             width: Math.max(t.rect.width - pad * 2, 1),
@@ -1150,6 +1219,7 @@ function bind() {
   $('btn-sign-clear').addEventListener('click', () => {
     if (signPad) signPad.clear();
   });
+  $('btn-sign-skip').addEventListener('click', skipSignature);
   $('btn-fallback').addEventListener('click', sharePdfs);
   $('btn-download').addEventListener('click', downloadPdfs);
   $('btn-restart').addEventListener('click', () => {

@@ -56,7 +56,7 @@ Se preferisci servire la PWA da un host statico separato (GitHub Pages, Netlify)
 
 ## Firma e certificazione blockchain
 
-**Firma**: se un PDF contiene campi firma reali (`/Sig`), dopo la domanda finale l'app mostra la schermata *Firma* dove si disegna la firma col dito (libreria open source [signature_pad](https://github.com/szimek/signature_pad)). L'immagine viene ritagliata, salvata sul dispositivo e inserita dentro i rettangoli dei campi firma. Disattivabile da **Impostazioni → Firma e certificazione**.
+**Firma**: se un PDF contiene campi firma reali (`/Sig`), dopo le domande l'app mostra la schermata *Firma* dove si disegna la firma col dito (libreria open source [signature_pad](https://github.com/szimek/signature_pad)). Se il documento ha **più firmatari** (campi con nomi diversi, es. "FirmaCliente" e "FirmaDirettore"), l'app chiede una firma per ciascuno, una alla volta, mostrando il nome del campo; con "Usa questa firma anche per i campi successivi" si riapplica la stessa firma a tutti. Ogni firma viene ritagliata, salvata sul dispositivo e inserita nel rettangolo del suo campo. Disattivabile da **Impostazioni → Firma e certificazione**.
 
 **Blockchain (OpenTimestamps)**: al momento dell'invio, per ogni PDF viene calcolato l'hash SHA-256 e inviato ai calendari pubblici gratuiti di [OpenTimestamps](https://opentimestamps.org), che lo ancorano su Bitcoin. L'email contiene gli hash e la prova `.ots` allegata; la prova si completa entro poche ore e si verifica gratuitamente su [opentimestamps.org/verify](https://opentimestamps.org/verify) caricando PDF + `.ots`.
 
@@ -73,5 +73,5 @@ Se il server non è raggiungibile, l'app propone la **condivisione Android** (We
 ## Limiti noti
 
 - I PDF devono avere **campi modulo** (AcroForm): i PDF scannerizzati o pieni di testo libero non sono compilabili automaticamente.
-- La firma viene inserita solo nei **campi firma widget reali** (`/Sig`): non c'è trascinamento libero del timbro, e l'immagine della firma non è una firma crittografica PAdES.
+- La firma viene inserita solo nei **campi firma widget reali** (`/Sig`): campi con lo stesso nome condividono la stessa firma; non c'è trascinamento libero del timbro, e l'immagine della firma non è una firma crittografica PAdES.
 - La prova OpenTimestamps si completa entro qualche ora: subito dopo l'invio il file `.ots` è "pending" e la verifica diventa valida dopo l'ancoraggio Bitcoin.
