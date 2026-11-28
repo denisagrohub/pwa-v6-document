@@ -64,25 +64,9 @@ const SERVICES = [
     hint: 'Compila moduli e invia via email'
   },
   {
-    id: 'firma-remota',
-    name: 'Firma remota',
-    glyph: '\u270d\ufe0f',
-    gradient: 'svc-gold',
-    available: false,
-    hint: 'In arrivo'
-  },
-  {
-    id: 'scansione',
-    name: 'Scansione documenti',
-    glyph: '\ud83d\udcf7',
-    gradient: 'svc-indigo',
-    available: false,
-    hint: 'In arrivo'
-  },
-  {
-    id: 'rubrica',
-    name: 'Rubrica destinatari',
-    glyph: '\ud83d\udcd6',
+    id: 'cassetto-fiscale',
+    name: 'Valutazione Cassetto Fiscale',
+    glyph: '\ud83d\uddc2\ufe0f',
     gradient: 'svc-gold',
     available: false,
     hint: 'In arrivo'
