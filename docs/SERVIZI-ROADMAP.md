@@ -49,6 +49,23 @@ Due modalità (come da richiesta):
 - Upload a blocchi con progresso, coda di elaborazione un file alla volta, catalogo per progetto
 - ⚠️ Vincolo: il free tier di Render (512 MB RAM, disco effimero) non regge gigabyte persistenti → serve piano superiore o storage esterno (S3/B2) prima di abilitare la Fase 2 in produzione
 
+### Integrazione con la piattaforma V6 Impresa (repo `denisagrohub/v6-impresa-ai-new`)
+
+Il repo del sito (analizzato 2026-11) è una piattaforma completa: frontend **Next.js multi-brand** (Turborepo, deploy Vercel al push — mai push diretti su main) + backend **Odoo** con ~50 moduli `erpv6_*` e gateway REST `/api/v1/*` (`erpv6_api_gateway`).
+
+Sinergie dirette con questa PWA:
+- **erpv6_blockchain**: già usa **OpenTimestamps su Bitcoin** con gli stessi calendari della nostra PWA → certificazione coerente tra app e piattaforma; pagina pubblica di verifica `/api/v1/public/verify/<token>` già esistente
+- **Checklist**: `admin_deal_checklists_api` + `consultant_deal_checklists_api` — motore checklist già presente → la checklist del cassetto fiscale può appoggiarvisi
+- **Documenti**: `erpv6_relation_documents` + `admin_documents_api` — gestione/Archiviazione documenti lato piattaforma
+- **Firma**: `erpv6_sign` + `/api/v1/sign/request` e `/status` — richieste firma remota già implementate lato piattaforma (la nostra firma touchscreen resta per i campi AcroForm)
+- **Autenticazione**: magic link → JWT già usata dalle pagine `/c/<token>` — la PWA può autenticarsi con lo stesso flusso
+- **Fiscalità**: `erpv6_accounting`, `erpv6_crediti` — dati contabili potenzialmente incrociabili nell'analisi
+
+Opzioni di collegamento della PWA:
+1. **Standalone** (attuale): server Render proprio, report via email
+2. **Collegata**: la PWA chiama il gateway Odoo `/api/v1/*` con JWT magic-link → documenti e report finiscono nei progetti della piattaforma (serve conferma CORS e regole di accesso)
+3. **Ibrida**: Fase 1 del cassetto fiscale lato PWA (privacy: analisi nel browser), risultati e report caricati in piattaforma via API
+
 ### Aperto (serve dal committente)
 - [ ] Tipi di documento / checklist target (elenco concreto dei documenti da verificare)
 - [ ] Conferma: partire dalla Fase 1
