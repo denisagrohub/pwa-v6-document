@@ -1,5 +1,6 @@
-const CACHE = 'pdf-compilatore-v1';
+const CACHE = 'pdf-compilatore-v7';
 const PDFLIB_URL = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+const SIGNPAD_URL = 'https://unpkg.com/signature_pad@5/dist/signature_pad.umd.min.js';
 
 const ASSETS = [
   './',
@@ -10,7 +11,8 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  PDFLIB_URL
+  PDFLIB_URL,
+  SIGNPAD_URL
 ];
 
 self.addEventListener('install', (event) => {

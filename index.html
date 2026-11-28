@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1a73e8">
   <meta name="description" content="Compila PDF compilabili rispondendo a domande e invia l'email pronta.">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link id="manifest-link" rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>PDF Compilatore</title>
@@ -13,24 +13,55 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="screen-title">PDF Compilatore</h1>
+    <h1 id="screen-title"><img id="brand-logo" src="icons/icon-192.png" alt=""><span id="title-text">PDF Compilatore</span></h1>
     <button id="btn-settings" class="icon-btn" aria-label="Impostazioni">⚙️</button>
   </header>
 
   <main>
     <!-- HOME -->
     <section id="screen-home" class="screen">
-      <div class="card">
+      <div class="hero">
+        <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustrazione: documento compilato">
+          <defs>
+            <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4338ca"/><stop offset="1" stop-color="#312e81"/>
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="72" r="62" fill="url(#hg1)" opacity="0.12"/>
+          <rect x="55" y="18" width="76" height="100" rx="10" fill="url(#hg1)"/>
+          <rect x="63" y="30" width="60" height="76" rx="5" fill="#ffffff"/>
+          <rect x="70" y="42" width="38" height="5" rx="2.5" fill="#d4af37" opacity="0.9"/>
+          <rect x="70" y="54" width="46" height="4" rx="2" fill="#e2d8aa"/>
+          <rect x="70" y="64" width="30" height="4" rx="2" fill="#e2d8aa"/>
+          <rect x="70" y="74" width="42" height="4" rx="2" fill="#e2d8aa"/>
+          <circle cx="128" cy="102" r="17" fill="#d4af37"/>
+          <path d="M120.5 102.5l5 5 10-10" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p>Compila i tuoi moduli PDF rispondendo a poche domande e invia tutto via email, direttamente dal telefono.</p>
+      </div>
+      <h2 class="services-title">Servizi</h2>
+      <div id="services-grid" class="services-grid"></div>
+      <div id="card-pdf" class="card">
         <h2>I tuoi moduli PDF</h2>
         <p class="hint">Aggiungi i PDF compilabili una sola volta: restano salvati nell'app anche offline.</p>
         <ul id="pdf-list" class="pdf-list"></ul>
+        <label>Progetto (cartella dell'archivio)
+          <input id="project-name" type="text" list="project-list" placeholder="Es. Cliente Rossi — 2025">
+          <datalist id="project-list"></datalist>
+        </label>
         <div class="row">
           <button id="btn-add-pdf" class="btn btn-secondary">➕ Aggiungi PDF</button>
           <button id="btn-start" class="btn btn-primary">▶️ Inizia compilazione</button>
         </div>
         <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
       </div>
+      <div id="server-pill" class="server-pill hidden"></div>
       <div id="home-status" class="status hidden"></div>
+      <div id="archive-card" class="card">
+        <h2>📁 Archivio compilati</h2>
+        <p class="hint">Ogni invio viene salvato nel progetto scelto, organizzato per cartella e sempre disponibile, anche offline.</p>
+        <div id="archive-list"></div>
+      </div>
     </section>
 
     <!-- QUESTIONARIO -->
@@ -41,6 +72,7 @@
       </div>
       <div class="card">
         <p id="q-pdf" class="q-pdf"></p>
+        <span id="q-type" class="q-type"></span>
         <h2 id="q-label">Domanda</h2>
         <p id="q-hint" class="hint"></p>
         <div id="q-input-area"></div>
@@ -50,6 +82,28 @@
             <button id="btn-skip" class="btn btn-ghost">Salta</button>
             <button id="btn-next" class="btn btn-primary">Avanti →</button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FIRMA -->
+    <section id="screen-sign" class="screen hidden">
+      <div class="card">
+        <h2>✍️ La tua firma</h2>
+        <p id="sign-progress" class="hint"></p>
+        <p id="sign-field" class="q-pdf sign-field"></p>
+        <p class="hint">Se il documento ha più firmatari (es. cliente e direttore), ti chiederemo una firma per ciascuno, una alla volta. La firma viene inserita nei campi firma dei PDF e resta salvata per le prossime volte.</p>
+        <canvas id="sign-canvas" class="sign-canvas"></canvas>
+        <label id="sign-all-row" class="check-row hidden">
+          <input id="sign-all" type="checkbox">
+          <span>Usa questa firma anche per i campi firma successivi</span>
+        </label>
+        <div class="row space-between">
+          <div class="row">
+            <button id="btn-sign-clear" class="btn btn-secondary">🧽 Pulisci</button>
+            <button id="btn-sign-skip" class="btn btn-ghost">Salta</button>
+          </div>
+          <button id="btn-sign-ok" class="btn btn-primary">Usa questa firma →</button>
         </div>
       </div>
     </section>
@@ -81,6 +135,53 @@
     <!-- IMPOSTAZIONI -->
     <section id="screen-settings" class="screen hidden">
       <div class="card">
+        <h2>Aspetto</h2>
+        <p class="hint">Logo e colori dell'app: le modifiche si applicano subito e restano salvate sul dispositivo. Il logo personalizzato viene usato anche come icona dell'app se la reinstalli dalla stessa sessione.</p>
+        <div class="appearance-row">
+          <div class="logo-preview"><img id="logo-preview-img" src="icons/icon-192.png" alt="Anteprima logo"></div>
+          <div>
+            <button id="btn-upload-logo" class="btn btn-secondary">🖼️ Carica logo</button>
+            <button id="btn-remove-logo" class="btn btn-ghost">Rimuovi</button>
+          </div>
+        </div>
+        <input id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <div class="swatches">
+          <button class="swatch" data-p="#4338ca" data-a="#d4af37"><span class="dot" style="background:#4338ca"></span>Indaco &amp; Oro</button>
+          <button class="swatch" data-p="#1f2430" data-a="#d4af37"><span class="dot" style="background:#1f2430"></span>Notte &amp; Oro</button>
+          <button class="swatch" data-p="#1e40af" data-a="#c9a227"><span class="dot" style="background:#1e40af"></span>Blu reale</button>
+        </div>
+        <div class="color-row">
+          <label>Colore primario
+            <input id="set-primary" type="color" value="#4338ca">
+          </label>
+          <label>Accento (oro)
+            <input id="set-accent" type="color" value="#d4af37">
+          </label>
+        </div>
+        <div class="theme-preview">
+          <div class="tp-bar"></div>
+          <span class="tp-btn">Pulsante</span>
+          <span class="tp-gold">Accento</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Servizi attivi</h2>
+        <p class="hint">Scegli quali servizi vedere come icone nella home.</p>
+        <div id="services-settings"></div>
+      </div>
+      <div class="card">
+        <h2>Firma e certificazione</h2>
+        <p class="hint">Controlla cosa succede dopo la compilazione, prima dell'invio via email.</p>
+        <label class="check-row">
+          <input id="set-sign-enabled" type="checkbox">
+          <span>✍️ Firma touchscreen nei campi firma dei PDF</span>
+        </label>
+        <label class="check-row">
+          <input id="set-ots-enabled" type="checkbox">
+          <span>🔐 Certificazione blockchain OpenTimestamps (hash SHA-256 ancorato su Bitcoin, prova .ots allegata)</span>
+        </label>
+      </div>
+      <div class="card">
         <h2>Server di invio</h2>
         <p class="hint">Indirizzo del server SMTP configurato (lascia vuoto per usare lo stesso dominio dell'app).</p>
         <label>URL API
@@ -111,6 +212,14 @@
       </div>
     </section>
   </main>
+
+  <div id="loader-overlay" class="loader-overlay hidden" aria-live="polite">
+    <div class="loader-card">
+      <img src="icons/icon-192.png" alt="" class="loader-icon">
+      <div class="spinner" role="status" aria-label="Caricamento"></div>
+      <p id="loader-text">Attendere…</p>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>
   <script src="app.js" defer></script>
